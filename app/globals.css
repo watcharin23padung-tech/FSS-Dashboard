@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #f7f5ef;
+  color: #1b2a4a;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid #d4a017;
+  outline-offset: 2px;
+}
+
+.lane-track {
+  position: relative;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: #e7e2d3;
+  overflow: hidden;
+}
+
+.lane-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(15, 31, 61, 0.06) 0,
+    rgba(15, 31, 61, 0.06) 1px,
+    transparent 1px,
+    transparent 24px
+  );
+}
+
+.lane-fill {
+  height: 100%;
+  border-radius: 9999px;
+  position: relative;
+  z-index: 1;
+}
