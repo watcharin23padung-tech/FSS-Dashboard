@@ -83,7 +83,13 @@ export default async function DashboardPage() {
     <>
       {/* Metric strip */}
       <div className="grid grid-cols-5 divide-x divide-neutral-200 border-b border-neutral-200 px-10">
-        <MetricTile label="ฝ่ายทั้งหมด" value={deptList.length || "—"} />
+        <MetricTile
+          label="ฝ่ายทั้งหมด"
+          value={deptList.length || "—"}
+          caption={
+            deptList.length > 0 ? `${deptBudgetRows.length} ฝ่ายมีข้อมูลงบประมาณปี ${fiscalYear ?? "—"}` : undefined
+          }
+        />
         <MetricTile label="บุคลากรทั้งหมด" value={allPersonnel.length || "—"} />
         <MetricTile label={`การเบิกจ่ายงบประมาณ (${fiscalYear ?? "—"})`} value={`${overallUtilization}%`} />
         <MetricTile label="โครงการที่ดำเนินอยู่" value={activeProjectCount} />
@@ -239,16 +245,19 @@ export default async function DashboardPage() {
 function MetricTile({
   label,
   value,
+  caption,
   accent = false,
 }: {
   label: string;
   value: string | number;
+  caption?: string;
   accent?: boolean;
 }) {
   return (
     <div className="px-1 py-4">
       <div className="text-xs text-neutral-500">{label}</div>
       <div className={`mt-1 font-display text-3xl font-semibold ${accent ? "text-[#0E7A3B]" : ""}`}>{value}</div>
+      {caption && <div className="mt-0.5 text-[11px] text-neutral-400">{caption}</div>}
     </div>
   );
 }
