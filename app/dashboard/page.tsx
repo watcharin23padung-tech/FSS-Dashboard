@@ -113,47 +113,51 @@ export default async function DashboardPage() {
             <BudgetDonut usedPct={overallUtilization} />
           </div>
 
-          {deptBudgetRows.length > 0 && (
-            <DepartmentBudgetBar data={deptBudgetRows.slice(0, 8)} />
-          )}
+          {deptBudgetRows.length > 0 && <DepartmentBudgetBar data={deptBudgetRows} />}
 
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="text-left text-neutral-500">
-                <th className="pb-1.5 font-medium">ฝ่ายงาน</th>
-                <th className="pb-1.5 text-right font-medium">งบประมาณรวม</th>
-                <th className="pb-1.5 text-right font-medium">ได้รับจัดสรรแล้ว</th>
-                <th className="w-12 pb-1.5 text-right font-medium">%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deptBudgetRows.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-3 text-neutral-400">
-                    ยังไม่มีข้อมูลงบประมาณสำหรับปีนี้
-                  </td>
+          <div className="max-h-[360px] overflow-y-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="text-left text-neutral-500">
+                  <th className="pb-1.5 font-medium">ฝ่ายงาน</th>
+                  <th className="pb-1.5 text-right font-medium">งบประมาณรวม</th>
+                  <th className="pb-1.5 text-right font-medium">ได้รับจัดสรรแล้ว</th>
+                  <th className="w-12 pb-1.5 text-right font-medium">%</th>
                 </tr>
-              )}
-              {deptBudgetRows.map((d, i) => (
-                <tr key={d.name} className="border-t border-neutral-200">
-                  <td className="py-1">
-                    {i + 1}. {d.name}
-                  </td>
-                  <td className="py-1 text-right text-neutral-500">{thb.format(d.allocated)}</td>
-                  <td className="py-1 text-right">{thb.format(d.used)}</td>
-                  <td className={`py-1 text-right ${d.pct === 100 ? "text-[#0E7A3B]" : ""}`}>{d.pct}%</td>
-                </tr>
-              ))}
-              {deptBudgetRows.length > 0 && (
+              </thead>
+              <tbody>
+                {deptBudgetRows.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-3 text-neutral-400">
+                      ยังไม่มีข้อมูลงบประมาณสำหรับปีนี้
+                    </td>
+                  </tr>
+                )}
+                {deptBudgetRows.map((d, i) => (
+                  <tr key={d.name} className="border-t border-neutral-200">
+                    <td className="py-1">
+                      {i + 1}. {d.name}
+                    </td>
+                    <td className="py-1 text-right text-neutral-500">{thb.format(d.allocated)}</td>
+                    <td className="py-1 text-right">{thb.format(d.used)}</td>
+                    <td className={`py-1 text-right ${d.pct === 100 ? "text-[#0E7A3B]" : ""}`}>{d.pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {deptBudgetRows.length > 0 && (
+            <table className="w-full border-collapse text-xs">
+              <tbody>
                 <tr className="border-t-2 border-neutral-900 font-semibold">
-                  <td className="py-1.5">รวมทั้งหมด</td>
-                  <td className="py-1.5 text-right">{thb.format(totalAllocated)}</td>
-                  <td className="py-1.5 text-right">{thb.format(totalUsed)}</td>
-                  <td className="py-1.5 text-right text-[#0E7A3B]">{overallUtilization}%</td>
+                  <td className="w-[46%] py-1.5">รวมทั้งหมด</td>
+                  <td className="w-[27%] py-1.5 text-right">{thb.format(totalAllocated)}</td>
+                  <td className="w-[27%] py-1.5 text-right">{thb.format(totalUsed)}</td>
+                  <td className="w-12 py-1.5 text-right text-[#0E7A3B]">{overallUtilization}%</td>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          )}
 
           <div className="my-1 h-px bg-neutral-200" />
 
@@ -208,19 +212,19 @@ export default async function DashboardPage() {
             <KpiStatusPie onTrack={kpiAchievedCount} behind={kpiBehindCount} noData={kpiNoDataCount} />
           )}
 
-          <div className="flex flex-col gap-3">
+          <div className="flex max-h-[480px] flex-col gap-3 overflow-y-auto pr-1">
             {kpiList.length === 0 && <p className="text-sm text-neutral-400">ยังไม่มีข้อมูล KPI</p>}
-            {kpiList.slice(0, 3).map((k) => {
+            {kpiList.map((k) => {
               const onTrack =
                 k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 >= k.target_2570;
               return (
-                <div key={k.id} className="rounded-lg border border-neutral-200 p-4">
+                <div key={k.id} className="rounded-lg border border-neutral-200 p-3">
                   <div className="text-sm font-medium">{k.kpi_name}</div>
-                  <div className="mt-2 flex items-baseline justify-between">
+                  <div className="mt-1.5 flex items-baseline justify-between">
                     <span className="text-xs text-neutral-500">เป้าหมาย 2570</span>
                     <span className="text-sm">{k.target_2570 != null ? thb.format(k.target_2570) : "—"}</span>
                   </div>
-                  <div className="mt-1 flex items-baseline justify-between">
+                  <div className="mt-0.5 flex items-baseline justify-between">
                     <span className="text-xs text-neutral-500">ผลจริง Q3/2569</span>
                     <span className={`text-sm font-semibold ${onTrack ? "text-[#0E7A3B]" : ""}`}>
                       {k.actual_q3_2569 != null ? thb.format(k.actual_q3_2569) : "—"}
