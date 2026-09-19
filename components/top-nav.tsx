@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { label: "ภาพรวม", href: "/dashboard" },
+  { label: "ติดตามฝ่าย", href: "/dashboard/tracking" },
   { label: "บุคลากร", href: "/dashboard/personnel" },
   { label: "งบประมาณ", href: "/dashboard/budget" },
   { label: "โครงการ", href: "/dashboard/projects" },
