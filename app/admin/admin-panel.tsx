@@ -24,7 +24,7 @@ const CATEGORIES: { id: Category; label: string; needsDepartment: boolean }[] = 
 
 const CSV_TEMPLATE: Record<Category, string> = {
   personnel: "full_name,position,employment_type,email,phone",
-  budget: "fiscal_year,category,budget_name,allocated_amount,used_amount",
+  budget: "fiscal_year,category,budget_name,allocated_amount,used_amount,pending_midyear_amount",
   activities: "fiscal_year,title,description,status,start_date,end_date,budget_used",
   kpi: "kpi_code,kpi_name,unit,target_2568,target_2569,target_2570",
 };
@@ -289,6 +289,7 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
   const [budgetName, setBudgetName] = useState("");
   const [allocated, setAllocated] = useState("");
   const [used, setUsed] = useState("");
+  const [pending, setPending] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -305,6 +306,7 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
       budget_name: budgetName.trim(),
       allocated_amount: Number(allocated) || 0,
       used_amount: Number(used) || 0,
+      pending_midyear_amount: Number(pending) || 0,
     });
     if (error) {
       setMsg(`เพิ่มรายการงบประมาณไม่สำเร็จ: ${error.message}`);
@@ -316,6 +318,7 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
     setBudgetName("");
     setAllocated("");
     setUsed("");
+    setPending("");
   }
 
   return (
@@ -323,8 +326,9 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
       <TextInput label="ปีงบประมาณ (พ.ศ. เช่น 2570)" value={fiscalYear} onChange={setFiscalYear} />
       <TextInput label="หมวดงบ" value={category} onChange={setCategory} />
       <TextInput label="ชื่อรายการงบประมาณ" value={budgetName} onChange={setBudgetName} full />
-      <TextInput label="งบจัดสรร (บาท)" value={allocated} onChange={setAllocated} />
-      <TextInput label="เบิกใช้แล้ว (บาท)" value={used} onChange={setUsed} />
+      <TextInput label="งบที่ได้ (บาท)" value={allocated} onChange={setAllocated} />
+      <TextInput label="ได้รับจัดสรร (บาท)" value={used} onChange={setUsed} />
+      <TextInput label="รองบกลางปี (บาท)" value={pending} onChange={setPending} />
       <div className="sm:col-span-2">
         <SubmitButton label="เพิ่มรายการงบประมาณ" />
         <FormMessage msg={msg} />
@@ -519,6 +523,7 @@ function CsvUpload({
           budget_name: r.budget_name || "",
           allocated_amount: Number(r.allocated_amount) || 0,
           used_amount: Number(r.used_amount) || 0,
+          pending_midyear_amount: Number(r.pending_midyear_amount) || 0,
         }));
       } else if (category === "activities") {
         table = "activities_projects";

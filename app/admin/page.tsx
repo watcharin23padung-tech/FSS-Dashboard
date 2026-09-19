@@ -22,7 +22,7 @@ export default async function AdminPage() {
       .order("full_name"),
     supabase
       .from("budget_items")
-      .select("id, department_id, fiscal_year, category, budget_name, allocated_amount, used_amount")
+      .select("id, department_id, fiscal_year, category, budget_name, allocated_amount, used_amount, pending_midyear_amount")
       .order("fiscal_year", { ascending: false }),
     supabase
       .from("activities_projects")
