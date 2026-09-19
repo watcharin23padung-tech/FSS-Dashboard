@@ -59,8 +59,13 @@ export default async function KpiPage() {
   const quarterlyByKpi: Record<string, QuarterlyActuals> = {};
   for (const k of kpiList) {
     const rowsForKpi = actualsList.filter((a) => a.kpi_id === k.id);
+    const prevRows = rowsForKpi.filter((a) => a.fiscal_year === prevFiscalYear);
+    const prevLatest = [4, 3, 2, 1]
+      .map((q) => ({ q, v: prevRows.find((a) => a.quarter === q)?.value ?? null }))
+      .find((x) => x.v != null);
     quarterlyByKpi[k.id] = {
-      prev: rowsForKpi.find((a) => a.fiscal_year === prevFiscalYear && a.quarter === 3)?.value ?? null,
+      prev: prevLatest?.v ?? null,
+      prevQuarter: prevLatest?.q ?? null,
       q1: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 1)?.value ?? null,
       q2: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 2)?.value ?? null,
       q3: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 3)?.value ?? null,
