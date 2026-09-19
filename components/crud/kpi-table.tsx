@@ -137,14 +137,14 @@ export default function KpiTable({
       type="number"
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-right text-sm"
+      className="w-12 rounded border border-neutral-300 px-1 py-1 text-right text-xs"
     />
   );
 
   return (
     <div className="overflow-x-auto">
       {msg && <p className="mb-2 text-sm text-red-600">{msg}</p>}
-      <table className="w-full min-w-[1100px] border-collapse text-sm">
+      <table className="w-full min-w-[860px] border-collapse text-sm">
         <thead>
           <tr className="border-b-2 border-neutral-300 bg-neutral-50 text-left text-neutral-500">
             <th className="px-2 py-2 font-medium">KPI</th>
@@ -153,12 +153,9 @@ export default function KpiTable({
             <th className="px-2 py-2 text-right font-medium">เป้า 2569</th>
             <th className="px-2 py-2 text-right font-medium">ผลจริง {prevFiscalYear}</th>
             <th className="bg-[#E6F4EC] px-2 py-2 text-right font-semibold text-[#0E7A3B]">เป้า {fiscalYear}</th>
-            <th className="px-2 py-2 text-right font-medium">Q1/{fiscalYear}</th>
-            <th className="px-2 py-2 text-right font-medium">Q2/{fiscalYear}</th>
-            <th className="px-2 py-2 text-right font-medium">Q3/{fiscalYear}</th>
-            <th className="px-2 py-2 text-right font-medium">Q4/{fiscalYear}</th>
+            <th className="px-2 py-2 text-right font-medium">ดำเนินการไปแล้ว ({fiscalYear})</th>
             <th className="px-2 py-2 font-medium">หน่วย</th>
-            <th className="px-2 py-2 font-medium">โครงการที่เกี่ยวข้อง</th>
+            <th className="w-24 px-2 py-2 text-center font-medium">โครงการ</th>
             <th className="w-28 px-2 py-2 font-medium"></th>
           </tr>
         </thead>
@@ -216,10 +213,26 @@ export default function KpiTable({
                         className="w-20 rounded border border-neutral-300 px-2 py-1 text-right text-sm"
                       />
                     </td>
-                    <td className="py-1.5 pr-2">{qInput(draftQ.q1, (v) => setDraftQ({ ...draftQ, q1: v }))}</td>
-                    <td className="py-1.5 pr-2">{qInput(draftQ.q2, (v) => setDraftQ({ ...draftQ, q2: v }))}</td>
-                    <td className="py-1.5 pr-2">{qInput(draftQ.q3, (v) => setDraftQ({ ...draftQ, q3: v }))}</td>
-                    <td className="py-1.5 pr-2">{qInput(draftQ.q4, (v) => setDraftQ({ ...draftQ, q4: v }))}</td>
+                    <td className="py-1.5 pr-2">
+                      <div className="grid grid-cols-4 gap-1">
+                        <label className="flex flex-col items-center text-[10px] text-neutral-400">
+                          Q1
+                          {qInput(draftQ.q1, (v) => setDraftQ({ ...draftQ, q1: v }))}
+                        </label>
+                        <label className="flex flex-col items-center text-[10px] text-neutral-400">
+                          Q2
+                          {qInput(draftQ.q2, (v) => setDraftQ({ ...draftQ, q2: v }))}
+                        </label>
+                        <label className="flex flex-col items-center text-[10px] text-neutral-400">
+                          Q3
+                          {qInput(draftQ.q3, (v) => setDraftQ({ ...draftQ, q3: v }))}
+                        </label>
+                        <label className="flex flex-col items-center text-[10px] text-neutral-400">
+                          Q4
+                          {qInput(draftQ.q4, (v) => setDraftQ({ ...draftQ, q4: v }))}
+                        </label>
+                      </div>
+                    </td>
                     <td className="py-1.5 pr-2">
                       <input
                         value={draft.unit ?? ""}
@@ -277,28 +290,36 @@ export default function KpiTable({
                     <td className="bg-[#E6F4EC] px-2 py-2 text-right font-semibold text-neutral-900">
                       {r.target_2570 != null ? thb.format(r.target_2570) : "—"}
                     </td>
-                    <td className="px-2 py-2 text-right text-neutral-600">{q.q1 != null ? thb.format(q.q1) : "—"}</td>
-                    <td className="px-2 py-2 text-right text-neutral-600">{q.q2 != null ? thb.format(q.q2) : "—"}</td>
-                    <td className="px-2 py-2 text-right text-neutral-600">{q.q3 != null ? thb.format(q.q3) : "—"}</td>
                     <td className="px-2 py-2 text-right">
                       {(() => {
                         const latest = latestQuarterValue(q);
                         if (latest == null) return <span className="text-neutral-400">—</span>;
                         const onTrack = r.target_2570 != null && latest >= r.target_2570;
+                        const label = q.q4 != null ? "Q4" : q.q3 != null ? "Q3" : q.q2 != null ? "Q2" : "Q1";
                         return (
                           <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                               onTrack ? "bg-[#0E7A3B] text-white" : "bg-red-100 text-red-700"
                             }`}
                           >
                             {thb.format(latest)}
+                            <span className="font-normal opacity-75">({label})</span>
                           </span>
                         );
                       })()}
                     </td>
                     <td className="px-2 py-2 text-neutral-500">{r.unit ?? "—"}</td>
-                    <td className="px-2 py-2 text-neutral-500">
-                      {r.activity_id ? activityLabelById[r.activity_id] ?? "—" : <span className="text-neutral-300">—</span>}
+                    <td className="px-2 py-2 text-center">
+                      {r.activity_id ? (
+                        <span
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#E6F4EC] text-xs font-medium text-[#0E7A3B]"
+                          title={activityLabelById[r.activity_id] ?? ""}
+                        >
+                          1
+                        </span>
+                      ) : (
+                        <span className="text-neutral-300">0</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs">
                       <button onClick={() => startEdit(r)} className="mr-3 text-[#0E7A3B] hover:underline">
@@ -320,7 +341,8 @@ export default function KpiTable({
         </tbody>
       </table>
       <p className="mt-2 text-[11px] text-neutral-400">
-        คอลัมน์ขวาสุด (Q4/{fiscalYear}) ใช้บ่งชี้บรรลุเป้าหรือไม่ — ถ้าไตรมาสหลังยังไม่มีข้อมูล ระบบดูจากไตรมาสล่าสุดที่มีข้อมูลแทน
+        คอลัมน์ "ดำเนินการไปแล้ว" แสดงผลจริงจากไตรมาสล่าสุดที่มีข้อมูลของปี {fiscalYear} — สีเขียวหมายถึงบรรลุเป้าแล้ว
+        สีแดงหมายถึงยังไม่ถึงเป้า กดปุ่ม "แก้ไข" เพื่อกรอกผลจริงแยกรายไตรมาสได้
       </p>
     </div>
   );
