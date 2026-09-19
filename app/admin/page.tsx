@@ -29,7 +29,7 @@ export default async function AdminPage() {
       .order("fiscal_year", { ascending: false }),
     supabase
       .from("kpis")
-      .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, actual_q3_2569")
+      .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, actual_q3_2569, activity_id")
       .order("kpi_code"),
   ]);
 

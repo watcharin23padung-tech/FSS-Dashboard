@@ -6,7 +6,7 @@ import { parseCsv } from "@/lib/csv";
 import PersonnelTable, { PersonnelRow } from "@/components/crud/personnel-table";
 import BudgetTable, { BudgetRow } from "@/components/crud/budget-table";
 import ActivitiesTable, { ActivityRow } from "@/components/crud/activities-table";
-import KpiTable, { KpiRow } from "@/components/crud/kpi-table";
+import KpiTable, { KpiRow, ActivityOption } from "@/components/crud/kpi-table";
 
 type Department = { id: string; name_th: string; name_en: string | null };
 type Category = "personnel" | "budget" | "activities" | "kpi";
@@ -76,6 +76,10 @@ export default function AdminPanel({
   }
 
   const currentCategory = CATEGORIES.find((c) => c.id === activeCategory)!;
+  const activityOptions: ActivityOption[] = initialActivities.map((a) => {
+    const dept = departments.find((d) => d.id === a.department_id);
+    return { id: a.id, label: `[${dept?.name_th ?? "—"}] ${a.title}` };
+  });
 
   return (
     <div className="space-y-8">
@@ -153,7 +157,7 @@ export default function AdminPanel({
               {activeCategory === "activities" && (
                 <ActivityForm supabase={supabase} departmentId={selectedDeptId} />
               )}
-              {activeCategory === "kpi" && <KpiForm supabase={supabase} />}
+              {activeCategory === "kpi" && <KpiForm supabase={supabase} activityOptions={activityOptions} />}
 
               <div className="mt-8 border-t border-neutral-200 pt-6">
                 <CsvUpload
@@ -184,7 +188,7 @@ export default function AdminPanel({
                     rows={initialActivities.filter((a) => a.department_id === selectedDeptId)}
                   />
                 )}
-                {activeCategory === "kpi" && <KpiTable rows={initialKpis} />}
+                {activeCategory === "kpi" && <KpiTable rows={initialKpis} activityOptions={activityOptions} />}
               </div>
             </div>
           )}
@@ -362,7 +366,7 @@ function ActivityForm({ supabase, departmentId }: { supabase: any; departmentId:
   );
 }
 
-function KpiForm({ supabase }: { supabase: any }) {
+function KpiForm({ supabase, activityOptions }: { supabase: any; activityOptions: ActivityOption[] }) {
   const [kpiCode, setKpiCode] = useState("");
   const [kpiName, setKpiName] = useState("");
   const [unit, setUnit] = useState("");
@@ -370,6 +374,7 @@ function KpiForm({ supabase }: { supabase: any }) {
   const [target2569, setTarget2569] = useState("");
   const [target2570, setTarget2570] = useState("");
   const [actualQ3, setActualQ3] = useState("");
+  const [activityId, setActivityId] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -387,6 +392,7 @@ function KpiForm({ supabase }: { supabase: any }) {
       target_2569: target2569 ? Number(target2569) : null,
       target_2570: target2570 ? Number(target2570) : null,
       actual_q3_2569: actualQ3 ? Number(actualQ3) : null,
+      activity_id: activityId || null,
     });
     if (error) {
       setMsg(`เพิ่ม KPI ไม่สำเร็จ: ${error.message}`);
@@ -400,6 +406,7 @@ function KpiForm({ supabase }: { supabase: any }) {
     setTarget2569("");
     setTarget2570("");
     setActualQ3("");
+    setActivityId("");
   }
 
   return (
@@ -407,6 +414,21 @@ function KpiForm({ supabase }: { supabase: any }) {
       <TextInput label="รหัส KPI" value={kpiCode} onChange={setKpiCode} />
       <TextInput label="หน่วย" value={unit} onChange={setUnit} />
       <TextInput label="ชื่อตัวชี้วัด" value={kpiName} onChange={setKpiName} full />
+      <label className="text-sm text-neutral-600 sm:col-span-2">
+        โครงการที่เกี่ยวข้อง (ไม่บังคับ)
+        <select
+          value={activityId}
+          onChange={(e) => setActivityId(e.target.value)}
+          className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+        >
+          <option value="">— ไม่ผูกกับโครงการ (KPI ระดับคณะ) —</option>
+          {activityOptions.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <TextInput label="เป้าหมาย 2568" value={target2568} onChange={setTarget2568} />
       <TextInput label="เป้าหมาย 2569" value={target2569} onChange={setTarget2569} />
       <TextInput label="เป้าหมาย 2570" value={target2570} onChange={setTarget2570} />
