@@ -13,6 +13,7 @@ export default async function AdminPage() {
     { data: budgetItems },
     { data: activities },
     { data: kpis },
+    { data: kpiActuals },
   ] = await Promise.all([
     supabase.from("departments").select("id, name_th, name_en").order("name_th"),
     supabase
@@ -29,8 +30,9 @@ export default async function AdminPage() {
       .order("fiscal_year", { ascending: false }),
     supabase
       .from("kpis")
-      .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, actual_q3_2569, activity_id")
+      .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, activity_id")
       .order("kpi_code"),
+    supabase.from("kpi_actuals").select("kpi_id, fiscal_year, quarter, value"),
   ]);
 
   const fiscalYear =
@@ -79,6 +81,8 @@ export default async function AdminPage() {
             initialBudgetItems={budgetItems ?? []}
             initialActivities={activities ?? []}
             initialKpis={kpis ?? []}
+            initialKpiActuals={kpiActuals ?? []}
+            fiscalYear={fiscalYear ?? new Date().getFullYear() + 543}
           />
         </div>
       </div>

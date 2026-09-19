@@ -6,7 +6,7 @@ import { parseCsv } from "@/lib/csv";
 import PersonnelTable, { PersonnelRow } from "@/components/crud/personnel-table";
 import BudgetTable, { BudgetRow } from "@/components/crud/budget-table";
 import ActivitiesTable, { ActivityRow } from "@/components/crud/activities-table";
-import KpiTable, { KpiRow, ActivityOption } from "@/components/crud/kpi-table";
+import KpiTable, { KpiRow, ActivityOption, QuarterlyActuals } from "@/components/crud/kpi-table";
 
 type Department = { id: string; name_th: string; name_en: string | null };
 type Category = "personnel" | "budget" | "activities" | "kpi";
@@ -26,7 +26,7 @@ const CSV_TEMPLATE: Record<Category, string> = {
   personnel: "full_name,position,employment_type,email,phone",
   budget: "fiscal_year,category,budget_name,allocated_amount,used_amount",
   activities: "fiscal_year,title,description,status,start_date,end_date,budget_used",
-  kpi: "kpi_code,kpi_name,unit,target_2568,target_2569,target_2570,actual_q3_2569",
+  kpi: "kpi_code,kpi_name,unit,target_2568,target_2569,target_2570",
 };
 
 export default function AdminPanel({
@@ -35,13 +35,29 @@ export default function AdminPanel({
   initialBudgetItems,
   initialActivities,
   initialKpis,
+  initialKpiActuals,
+  fiscalYear,
 }: {
   initialDepartments: Department[];
   initialPersonnel: PersonnelRecord[];
   initialBudgetItems: BudgetRecord[];
   initialActivities: ActivityRecord[];
   initialKpis: KpiRow[];
+  initialKpiActuals: { kpi_id: string; fiscal_year: number; quarter: number; value: number | null }[];
+  fiscalYear: number;
 }) {
+  const prevFiscalYear = fiscalYear - 1;
+  const quarterlyByKpi: Record<string, QuarterlyActuals> = {};
+  for (const k of initialKpis) {
+    const rowsForKpi = initialKpiActuals.filter((a) => a.kpi_id === k.id);
+    quarterlyByKpi[k.id] = {
+      prev: rowsForKpi.find((a) => a.fiscal_year === prevFiscalYear && a.quarter === 3)?.value ?? null,
+      q1: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 1)?.value ?? null,
+      q2: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 2)?.value ?? null,
+      q3: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 3)?.value ?? null,
+      q4: rowsForKpi.find((a) => a.fiscal_year === fiscalYear && a.quarter === 4)?.value ?? null,
+    };
+  }
   const supabase = createClient();
   const [departments, setDepartments] = useState<Department[]>(initialDepartments);
   const [selectedDeptId, setSelectedDeptId] = useState<string>(initialDepartments[0]?.id ?? "");
@@ -188,7 +204,15 @@ export default function AdminPanel({
                     rows={initialActivities.filter((a) => a.department_id === selectedDeptId)}
                   />
                 )}
-                {activeCategory === "kpi" && <KpiTable rows={initialKpis} activityOptions={activityOptions} />}
+                {activeCategory === "kpi" && (
+                  <KpiTable
+                    rows={initialKpis}
+                    activityOptions={activityOptions}
+                    quarterlyByKpi={quarterlyByKpi}
+                    fiscalYear={fiscalYear}
+                    prevFiscalYear={prevFiscalYear}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -373,7 +397,6 @@ function KpiForm({ supabase, activityOptions }: { supabase: any; activityOptions
   const [target2568, setTarget2568] = useState("");
   const [target2569, setTarget2569] = useState("");
   const [target2570, setTarget2570] = useState("");
-  const [actualQ3, setActualQ3] = useState("");
   const [activityId, setActivityId] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -391,21 +414,19 @@ function KpiForm({ supabase, activityOptions }: { supabase: any; activityOptions
       target_2568: target2568 ? Number(target2568) : null,
       target_2569: target2569 ? Number(target2569) : null,
       target_2570: target2570 ? Number(target2570) : null,
-      actual_q3_2569: actualQ3 ? Number(actualQ3) : null,
       activity_id: activityId || null,
     });
     if (error) {
       setMsg(`เพิ่ม KPI ไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setMsg(`เพิ่ม "${kpiName.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านล่าง`);
+    setMsg(`เพิ่ม "${kpiName.trim()}" สำเร็จ — กรอกผลจริงรายไตรมาสได้ที่ปุ่ม "แก้ไข" ในรายการด้านล่าง`);
     setKpiCode("");
     setKpiName("");
     setUnit("");
     setTarget2568("");
     setTarget2569("");
     setTarget2570("");
-    setActualQ3("");
     setActivityId("");
   }
 
@@ -432,7 +453,9 @@ function KpiForm({ supabase, activityOptions }: { supabase: any; activityOptions
       <TextInput label="เป้าหมาย 2568" value={target2568} onChange={setTarget2568} />
       <TextInput label="เป้าหมาย 2569" value={target2569} onChange={setTarget2569} />
       <TextInput label="เป้าหมาย 2570" value={target2570} onChange={setTarget2570} />
-      <TextInput label="ผลจริง Q3/2569" value={actualQ3} onChange={setActualQ3} />
+      <p className="text-xs text-neutral-400 sm:col-span-2">
+        ผลจริงรายไตรมาส (Q1-Q4) กรอกเพิ่มได้ทีหลังผ่านปุ่ม "แก้ไข" ในรายการด้านล่าง หลังบันทึกครั้งนี้
+      </p>
       <div className="sm:col-span-2">
         <SubmitButton label="เพิ่มตัวชี้วัด" />
         <FormMessage msg={msg} />
@@ -513,7 +536,6 @@ function CsvUpload({
           target_2568: r.target_2568 ? Number(r.target_2568) : null,
           target_2569: r.target_2569 ? Number(r.target_2569) : null,
           target_2570: r.target_2570 ? Number(r.target_2570) : null,
-          actual_q3_2569: r.actual_q3_2569 ? Number(r.actual_q3_2569) : null,
         }));
       }
 
