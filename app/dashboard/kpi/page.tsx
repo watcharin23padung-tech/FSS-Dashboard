@@ -13,17 +13,32 @@ type Kpi = {
   target_2569: number | null;
   target_2570: number | null;
   actual_q3_2569: number | null;
+  activity_id: string | null;
 };
+
+type Department = { id: string; name_th: string };
+type Activity = { id: string; title: string; department_id: string };
 
 export default async function KpiPage() {
   const supabase = createClient();
-  const { data: kpis } = await supabase
-    .from("kpis")
-    .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, actual_q3_2569")
-    .order("kpi_code")
-    .returns<Kpi[]>();
+  const [{ data: kpis }, { data: departments }, { data: activities }] = await Promise.all([
+    supabase
+      .from("kpis")
+      .select("id, kpi_code, kpi_name, unit, target_2568, target_2569, target_2570, actual_q3_2569, activity_id")
+      .order("kpi_code")
+      .returns<Kpi[]>(),
+    supabase.from("departments").select("id, name_th").returns<Department[]>(),
+    supabase.from("activities_projects").select("id, title, department_id").returns<Activity[]>(),
+  ]);
 
   const kpiList = kpis ?? [];
+  const deptList = departments ?? [];
+  const activityList = activities ?? [];
+  const activityOptions = activityList.map((a) => {
+    const dept = deptList.find((d) => d.id === a.department_id);
+    return { id: a.id, label: `[${dept?.name_th ?? "—"}] ${a.title}` };
+  });
+
   const onTrack = kpiList.filter(
     (k) => k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 >= k.target_2570
   ).length;
@@ -59,7 +74,7 @@ export default async function KpiPage() {
       </div>
 
       <div className="mt-6">
-        <KpiTable rows={kpiList} />
+        <KpiTable rows={kpiList} activityOptions={activityOptions} />
       </div>
     </div>
   );
