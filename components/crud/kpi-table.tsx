@@ -12,11 +12,21 @@ export type KpiRow = {
   target_2569: number | null;
   target_2570: number | null;
   actual_q3_2569: number | null;
+  activity_id: string | null;
 };
+
+export type ActivityOption = { id: string; label: string };
 
 const thb = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 });
 
-export default function KpiTable({ rows: initialRows }: { rows: KpiRow[] }) {
+export default function KpiTable({
+  rows: initialRows,
+  activityOptions = [],
+}: {
+  rows: KpiRow[];
+  activityOptions?: ActivityOption[];
+}) {
+  const activityLabelById = Object.fromEntries(activityOptions.map((a) => [a.id, a.label]));
   const supabase = createClient();
   const [rows, setRows] = useState(initialRows);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +57,7 @@ export default function KpiTable({ rows: initialRows }: { rows: KpiRow[] }) {
         target_2569: draft.target_2569,
         target_2570: draft.target_2570,
         actual_q3_2569: draft.actual_q3_2569,
+        activity_id: draft.activity_id || null,
       })
       .eq("id", draft.id);
     setBusyId(null);
@@ -86,6 +97,7 @@ export default function KpiTable({ rows: initialRows }: { rows: KpiRow[] }) {
             <th className="bg-[#E6F4EC] px-2 py-2 text-right font-semibold text-[#0E7A3B]">เป้า 2570</th>
             <th className="px-2 py-2 text-right font-medium">ผลจริง Q3/2569</th>
             <th className="px-2 py-2 font-medium">หน่วย</th>
+            <th className="px-2 py-2 font-medium">โครงการที่เกี่ยวข้อง</th>
             <th className="w-28 px-2 py-2 font-medium"></th>
           </tr>
         </thead>
@@ -159,6 +171,20 @@ export default function KpiTable({ rows: initialRows }: { rows: KpiRow[] }) {
                         className="w-16 rounded border border-neutral-300 px-2 py-1 text-sm"
                       />
                     </td>
+                    <td className="py-1.5 pr-2">
+                      <select
+                        value={draft.activity_id ?? ""}
+                        onChange={(e) => setDraft({ ...draft, activity_id: e.target.value || null })}
+                        className="w-40 rounded border border-neutral-300 px-2 py-1 text-sm"
+                      >
+                        <option value="">— ไม่ผูกโครงการ —</option>
+                        {activityOptions.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="whitespace-nowrap py-1.5 text-xs">
                       <button onClick={saveEdit} disabled={busyId === r.id} className="mr-3 text-[#0E7A3B] hover:underline">
                         บันทึก
@@ -199,6 +225,9 @@ export default function KpiTable({ rows: initialRows }: { rows: KpiRow[] }) {
                       )}
                     </td>
                     <td className="px-2 py-2 text-neutral-500">{r.unit ?? "—"}</td>
+                    <td className="px-2 py-2 text-neutral-500">
+                      {r.activity_id ? activityLabelById[r.activity_id] ?? "—" : <span className="text-neutral-300">—</span>}
+                    </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs">
                       <button onClick={() => startEdit(r)} className="mr-3 text-[#0E7A3B] hover:underline">
                         แก้ไข
