@@ -25,9 +25,18 @@ type Kpi = {
   id: string;
   kpi_name: string;
   target_2570: number | null;
-  actual_q3_2569: number | null;
   activity_id: string | null;
 };
+type KpiActual = { kpi_id: string; fiscal_year: number; quarter: number; value: number | null };
+
+function latestQuarterValue(actuals: KpiActual[], kpiId: string, fiscalYear: number): number | null {
+  const forKpi = actuals.filter((a) => a.kpi_id === kpiId && a.fiscal_year === fiscalYear);
+  for (const q of [4, 3, 2, 1]) {
+    const found = forKpi.find((a) => a.quarter === q)?.value;
+    if (found != null) return found;
+  }
+  return null;
+}
 
 const STATUS_STYLE: Record<string, string> = {
   เสร็จสิ้น: "bg-[#E6F4EC] text-[#0E7A3B]",
@@ -40,23 +49,26 @@ export default async function TrackingPage() {
   const supabase = createClient();
   const today = new Date();
 
-  const [{ data: departments }, { data: budgetItems }, { data: activities }, { data: kpis }] = await Promise.all([
-    supabase.from("departments").select("id, name_th").order("name_th").returns<Department[]>(),
-    supabase
-      .from("budget_items")
-      .select("department_id, fiscal_year, allocated_amount, used_amount")
-      .returns<BudgetItem[]>(),
-    supabase
-      .from("activities_projects")
-      .select("id, department_id, fiscal_year, title, status, start_date, end_date")
-      .returns<Activity[]>(),
-    supabase.from("kpis").select("id, kpi_name, target_2570, actual_q3_2569, activity_id").returns<Kpi[]>(),
-  ]);
+  const [{ data: departments }, { data: budgetItems }, { data: activities }, { data: kpis }, { data: kpiActuals }] =
+    await Promise.all([
+      supabase.from("departments").select("id, name_th").order("name_th").returns<Department[]>(),
+      supabase
+        .from("budget_items")
+        .select("department_id, fiscal_year, allocated_amount, used_amount")
+        .returns<BudgetItem[]>(),
+      supabase
+        .from("activities_projects")
+        .select("id, department_id, fiscal_year, title, status, start_date, end_date")
+        .returns<Activity[]>(),
+      supabase.from("kpis").select("id, kpi_name, target_2570, activity_id").returns<Kpi[]>(),
+      supabase.from("kpi_actuals").select("kpi_id, fiscal_year, quarter, value").returns<KpiActual[]>(),
+    ]);
 
   const deptList = departments ?? [];
   const allBudget = budgetItems ?? [];
   const allActivities = activities ?? [];
   const allKpis = kpis ?? [];
+  const allKpiActuals = kpiActuals ?? [];
 
   const fiscalYear = allBudget.length > 0 ? Math.max(...allBudget.map((b) => b.fiscal_year)) : null;
   const budgetThisYear = allBudget.filter((b) => b.fiscal_year === fiscalYear);
@@ -81,7 +93,9 @@ export default async function TrackingPage() {
       .map((a) => ({
         ...a,
         overdue: isOverdue(a),
-        kpisLinked: allKpis.filter((k) => k.activity_id === a.id),
+        kpisLinked: allKpis
+          .filter((k) => k.activity_id === a.id)
+          .map((k) => ({ ...k, latest: fiscalYear != null ? latestQuarterValue(allKpiActuals, k.id, fiscalYear) : null })),
       }));
 
     return { dept, allocated, used, pct, projects };
@@ -188,8 +202,7 @@ export default async function TrackingPage() {
                       {p.kpisLinked.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {p.kpisLinked.map((k) => {
-                            const onTrack =
-                              k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 >= k.target_2570;
+                            const onTrack = k.target_2570 != null && k.latest != null && k.latest >= k.target_2570;
                             return (
                               <span
                                 key={k.id}
@@ -198,7 +211,7 @@ export default async function TrackingPage() {
                                 }`}
                                 title={k.kpi_name}
                               >
-                                {k.kpi_name}: {k.actual_q3_2569 != null ? thb.format(k.actual_q3_2569) : "—"} /{" "}
+                                {k.kpi_name}: {k.latest != null ? thb.format(k.latest) : "—"} /{" "}
                                 {k.target_2570 != null ? thb.format(k.target_2570) : "—"}
                               </span>
                             );
