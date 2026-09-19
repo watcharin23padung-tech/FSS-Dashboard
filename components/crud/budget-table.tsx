@@ -10,6 +10,7 @@ export type BudgetRow = {
   budget_name: string;
   allocated_amount: number;
   used_amount: number;
+  pending_midyear_amount: number;
 };
 
 const thb = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 });
@@ -43,6 +44,7 @@ export default function BudgetTable({ rows: initialRows }: { rows: BudgetRow[] }
         budget_name: draft.budget_name,
         allocated_amount: draft.allocated_amount,
         used_amount: draft.used_amount,
+        pending_midyear_amount: draft.pending_midyear_amount,
       })
       .eq("id", draft.id);
     setBusyId(null);
@@ -70,16 +72,17 @@ export default function BudgetTable({ rows: initialRows }: { rows: BudgetRow[] }
   if (rows.length === 0) return <p className="text-sm text-neutral-400">ยังไม่มีข้อมูล</p>;
 
   return (
-    <div>
+    <div className="overflow-x-auto">
       {msg && <p className="mb-2 text-sm text-red-600">{msg}</p>}
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full min-w-[760px] border-collapse text-sm">
         <thead>
           <tr className="text-left text-neutral-500">
             <th className="pb-1.5 font-medium">ปีงบ</th>
             <th className="pb-1.5 font-medium">หมวดงบ</th>
             <th className="pb-1.5 font-medium">ชื่อรายการ</th>
-            <th className="pb-1.5 text-right font-medium">จัดสรร</th>
-            <th className="pb-1.5 text-right font-medium">เบิกใช้แล้ว</th>
+            <th className="pb-1.5 text-right font-medium">งบที่ได้</th>
+            <th className="pb-1.5 text-right font-medium">ได้รับจัดสรร</th>
+            <th className="pb-1.5 text-right font-medium">รองบกลางปี</th>
             <th className="w-28 pb-1.5 font-medium"></th>
           </tr>
         </thead>
@@ -128,6 +131,14 @@ export default function BudgetTable({ rows: initialRows }: { rows: BudgetRow[] }
                         className="w-28 rounded border border-neutral-300 px-2 py-1 text-right text-sm"
                       />
                     </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        type="number"
+                        value={draft.pending_midyear_amount}
+                        onChange={(e) => setDraft({ ...draft, pending_midyear_amount: Number(e.target.value) })}
+                        className="w-28 rounded border border-neutral-300 px-2 py-1 text-right text-sm"
+                      />
+                    </td>
                     <td className="whitespace-nowrap py-1.5 text-xs">
                       <button onClick={saveEdit} disabled={busyId === r.id} className="mr-3 text-[#0E7A3B] hover:underline">
                         บันทึก
@@ -144,6 +155,9 @@ export default function BudgetTable({ rows: initialRows }: { rows: BudgetRow[] }
                     <td className="py-1.5">{r.budget_name}</td>
                     <td className="py-1.5 text-right">{thb.format(r.allocated_amount)}</td>
                     <td className="py-1.5 text-right">{thb.format(r.used_amount)}</td>
+                    <td className="py-1.5 text-right text-neutral-500">
+                      {r.pending_midyear_amount > 0 ? thb.format(r.pending_midyear_amount) : "—"}
+                    </td>
                     <td className="whitespace-nowrap py-1.5 text-xs">
                       <button onClick={() => startEdit(r)} className="mr-3 text-[#0E7A3B] hover:underline">
                         แก้ไข
