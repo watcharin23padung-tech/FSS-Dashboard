@@ -12,7 +12,13 @@ export const revalidate = 0;
 const thb = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 });
 
 type Department = { id: string; name_th: string; name_en: string | null };
-type BudgetItem = { department_id: string; fiscal_year: number; allocated_amount: number; used_amount: number };
+type BudgetItem = {
+  department_id: string;
+  fiscal_year: number;
+  allocated_amount: number;
+  used_amount: number;
+  pending_midyear_amount: number;
+};
 type Activity = { department_id: string; fiscal_year: number; title: string; status: string };
 type Personnel = { department_id: string };
 type Kpi = {
@@ -21,36 +27,49 @@ type Kpi = {
   kpi_name: string;
   unit: string | null;
   target_2570: number | null;
-  actual_q3_2569: number | null;
 };
+type KpiActual = { kpi_id: string; fiscal_year: number; quarter: number; value: number | null };
+
+function latestQuarterValue(actuals: KpiActual[], kpiId: string, fiscalYear: number): number | null {
+  const forKpi = actuals.filter((a) => a.kpi_id === kpiId && a.fiscal_year === fiscalYear);
+  for (const q of [4, 3, 2, 1]) {
+    const found = forKpi.find((a) => a.quarter === q)?.value;
+    if (found != null) return found;
+  }
+  return null;
+}
 
 export default async function DashboardPage() {
   const supabase = createClient();
 
-  const [{ data: departments }, { data: budgetItems }, { data: activities }, { data: personnel }, { data: kpis }] =
-    await Promise.all([
-      supabase.from("departments").select("id, name_th, name_en").returns<Department[]>(),
-      supabase
-        .from("budget_items")
-        .select("department_id, fiscal_year, allocated_amount, used_amount")
-        .returns<BudgetItem[]>(),
-      supabase
-        .from("activities_projects")
-        .select("department_id, fiscal_year, title, status")
-        .returns<Activity[]>(),
-      supabase.from("personnel").select("department_id").returns<Personnel[]>(),
-      supabase
-        .from("kpis")
-        .select("id, kpi_code, kpi_name, unit, target_2570, actual_q3_2569")
-        .order("kpi_code")
-        .returns<Kpi[]>(),
-    ]);
+  const [
+    { data: departments },
+    { data: budgetItems },
+    { data: activities },
+    { data: personnel },
+    { data: kpis },
+    { data: kpiActuals },
+  ] = await Promise.all([
+    supabase.from("departments").select("id, name_th, name_en").returns<Department[]>(),
+    supabase
+      .from("budget_items")
+      .select("department_id, fiscal_year, allocated_amount, used_amount, pending_midyear_amount")
+      .returns<BudgetItem[]>(),
+    supabase
+      .from("activities_projects")
+      .select("department_id, fiscal_year, title, status")
+      .returns<Activity[]>(),
+    supabase.from("personnel").select("department_id").returns<Personnel[]>(),
+    supabase.from("kpis").select("id, kpi_code, kpi_name, unit, target_2570").order("kpi_code").returns<Kpi[]>(),
+    supabase.from("kpi_actuals").select("kpi_id, fiscal_year, quarter, value").returns<KpiActual[]>(),
+  ]);
 
   const deptList = departments ?? [];
   const allBudget = budgetItems ?? [];
   const allActivities = activities ?? [];
   const allPersonnel = personnel ?? [];
   const kpiList = kpis ?? [];
+  const kpiActualsList = kpiActuals ?? [];
 
   const fiscalYear = allBudget.length > 0 ? Math.max(...allBudget.map((b) => b.fiscal_year)) : null;
   const budgetThisYear = allBudget.filter((b) => b.fiscal_year === fiscalYear);
@@ -58,14 +77,19 @@ export default async function DashboardPage() {
 
   const totalAllocated = budgetThisYear.reduce((sum, b) => sum + Number(b.allocated_amount), 0);
   const totalUsed = budgetThisYear.reduce((sum, b) => sum + Number(b.used_amount), 0);
+  const totalPending = budgetThisYear.reduce((sum, b) => sum + Number(b.pending_midyear_amount), 0);
   const overallUtilization = totalAllocated > 0 ? Math.round((totalUsed / totalAllocated) * 100) : 0;
   const activeProjectCount = activitiesThisYear.filter((a) => a.status !== "เสร็จสิ้น").length;
-  const kpiAchievedCount = kpiList.filter(
-    (k) => k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 >= k.target_2570
-  ).length;
-  const kpiBehindCount = kpiList.filter(
-    (k) => k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 < k.target_2570
-  ).length;
+
+  const kpiLatest = (k: Kpi) => (fiscalYear != null ? latestQuarterValue(kpiActualsList, k.id, fiscalYear) : null);
+  const kpiAchievedCount = kpiList.filter((k) => {
+    const latest = kpiLatest(k);
+    return k.target_2570 != null && latest != null && latest >= k.target_2570;
+  }).length;
+  const kpiBehindCount = kpiList.filter((k) => {
+    const latest = kpiLatest(k);
+    return k.target_2570 != null && latest != null && latest < k.target_2570;
+  }).length;
   const kpiNoDataCount = kpiList.length - kpiAchievedCount - kpiBehindCount;
 
   const deptBudgetRows = deptList
@@ -73,8 +97,9 @@ export default async function DashboardPage() {
       const items = budgetThisYear.filter((b) => b.department_id === dept.id);
       const allocated = items.reduce((sum, b) => sum + Number(b.allocated_amount), 0);
       const used = items.reduce((sum, b) => sum + Number(b.used_amount), 0);
+      const pending = items.reduce((sum, b) => sum + Number(b.pending_midyear_amount), 0);
       const pct = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
-      return { name: dept.name_th, allocated, used, pct };
+      return { name: dept.name_th, allocated, used, pending, pct };
     })
     .filter((d) => d.allocated > 0)
     .sort((a, b) => b.allocated - a.allocated);
@@ -120,15 +145,16 @@ export default async function DashboardPage() {
               <thead>
                 <tr className="text-left text-neutral-500">
                   <th className="pb-1.5 font-medium">ฝ่ายงาน</th>
-                  <th className="pb-1.5 text-right font-medium">งบประมาณรวม</th>
-                  <th className="pb-1.5 text-right font-medium">ได้รับจัดสรรแล้ว</th>
+                  <th className="pb-1.5 text-right font-medium">งบที่ได้</th>
+                  <th className="pb-1.5 text-right font-medium">ได้รับจัดสรร</th>
+                  <th className="pb-1.5 text-right font-medium">รองบกลางปี</th>
                   <th className="w-12 pb-1.5 text-right font-medium">%</th>
                 </tr>
               </thead>
               <tbody>
                 {deptBudgetRows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-3 text-neutral-400">
+                    <td colSpan={5} className="py-3 text-neutral-400">
                       ยังไม่มีข้อมูลงบประมาณสำหรับปีนี้
                     </td>
                   </tr>
@@ -140,6 +166,9 @@ export default async function DashboardPage() {
                     </td>
                     <td className="py-1 text-right text-neutral-500">{thb.format(d.allocated)}</td>
                     <td className="py-1 text-right">{thb.format(d.used)}</td>
+                    <td className="py-1 text-right text-neutral-500">
+                      {d.pending > 0 ? thb.format(d.pending) : "—"}
+                    </td>
                     <td className={`py-1 text-right ${d.pct === 100 ? "text-[#0E7A3B]" : ""}`}>{d.pct}%</td>
                   </tr>
                 ))}
@@ -150,9 +179,10 @@ export default async function DashboardPage() {
             <table className="w-full border-collapse text-xs">
               <tbody>
                 <tr className="border-t-2 border-neutral-900 font-semibold">
-                  <td className="w-[46%] py-1.5">รวมทั้งหมด</td>
-                  <td className="w-[27%] py-1.5 text-right">{thb.format(totalAllocated)}</td>
-                  <td className="w-[27%] py-1.5 text-right">{thb.format(totalUsed)}</td>
+                  <td className="w-[36%] py-1.5">รวมทั้งหมด</td>
+                  <td className="w-[21%] py-1.5 text-right">{thb.format(totalAllocated)}</td>
+                  <td className="w-[21%] py-1.5 text-right">{thb.format(totalUsed)}</td>
+                  <td className="w-[21%] py-1.5 text-right text-neutral-500">{thb.format(totalPending)}</td>
                   <td className="w-12 py-1.5 text-right text-[#0E7A3B]">{overallUtilization}%</td>
                 </tr>
               </tbody>
@@ -215,19 +245,19 @@ export default async function DashboardPage() {
           <div className="flex max-h-[480px] flex-col gap-3 overflow-y-auto pr-1">
             {kpiList.length === 0 && <p className="text-sm text-neutral-400">ยังไม่มีข้อมูล KPI</p>}
             {kpiList.map((k) => {
-              const onTrack =
-                k.target_2570 != null && k.actual_q3_2569 != null && k.actual_q3_2569 >= k.target_2570;
+              const latest = kpiLatest(k);
+              const onTrack = k.target_2570 != null && latest != null && latest >= k.target_2570;
               return (
                 <div key={k.id} className="rounded-lg border border-neutral-200 p-3">
                   <div className="text-sm font-medium">{k.kpi_name}</div>
                   <div className="mt-1.5 flex items-baseline justify-between">
-                    <span className="text-xs text-neutral-500">เป้าหมาย 2570</span>
+                    <span className="text-xs text-neutral-500">เป้าหมาย {fiscalYear ?? "—"}</span>
                     <span className="text-sm">{k.target_2570 != null ? thb.format(k.target_2570) : "—"}</span>
                   </div>
                   <div className="mt-0.5 flex items-baseline justify-between">
-                    <span className="text-xs text-neutral-500">ผลจริง Q3/2569</span>
+                    <span className="text-xs text-neutral-500">ผลจริงล่าสุด</span>
                     <span className={`text-sm font-semibold ${onTrack ? "text-[#0E7A3B]" : ""}`}>
-                      {k.actual_q3_2569 != null ? thb.format(k.actual_q3_2569) : "—"}
+                      {latest != null ? thb.format(latest) : "—"}
                     </span>
                   </div>
                 </div>
