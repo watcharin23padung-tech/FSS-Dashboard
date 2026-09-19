@@ -17,6 +17,7 @@ export type KpiRow = {
 export type ActivityOption = { id: string; label: string };
 export type QuarterlyActuals = {
   prev: number | null;
+  prevQuarter: number | null;
   q1: number | null;
   q2: number | null;
   q3: number | null;
@@ -59,7 +60,7 @@ export default function KpiTable({
   function startEdit(row: KpiRow) {
     setEditingId(row.id);
     setDraft({ ...row });
-    setDraftQ({ ...(quarterly[row.id] ?? { prev: null, q1: null, q2: null, q3: null, q4: null }) });
+    setDraftQ({ ...(quarterly[row.id] ?? { prev: null, prevQuarter: null, q1: null, q2: null, q3: null, q4: null }) });
     setMsg(null);
   }
   function cancelEdit() {
@@ -93,7 +94,7 @@ export default function KpiTable({
     }
 
     const actualsPayload = [
-      { kpi_id: draft.id, fiscal_year: prevFiscalYear, quarter: 3, value: draftQ.prev },
+      { kpi_id: draft.id, fiscal_year: prevFiscalYear, quarter: draftQ.prevQuarter ?? 4, value: draftQ.prev },
       { kpi_id: draft.id, fiscal_year: fiscalYear, quarter: 1, value: draftQ.q1 },
       { kpi_id: draft.id, fiscal_year: fiscalYear, quarter: 2, value: draftQ.q2 },
       { kpi_id: draft.id, fiscal_year: fiscalYear, quarter: 3, value: draftQ.q3 },
@@ -150,7 +151,7 @@ export default function KpiTable({
             <th className="px-2 py-2 font-medium">ชื่อตัวชี้วัด</th>
             <th className="px-2 py-2 text-right font-medium">เป้า 2568</th>
             <th className="px-2 py-2 text-right font-medium">เป้า 2569</th>
-            <th className="px-2 py-2 text-right font-medium">ผลจริง {prevFiscalYear} (Q3)</th>
+            <th className="px-2 py-2 text-right font-medium">ผลจริง {prevFiscalYear}</th>
             <th className="bg-[#E6F4EC] px-2 py-2 text-right font-semibold text-[#0E7A3B]">เป้า {fiscalYear}</th>
             <th className="px-2 py-2 text-right font-medium">Q1/{fiscalYear}</th>
             <th className="px-2 py-2 text-right font-medium">Q2/{fiscalYear}</th>
@@ -164,7 +165,7 @@ export default function KpiTable({
         <tbody>
           {rows.map((r, idx) => {
             const isEditing = editingId === r.id;
-            const q = quarterly[r.id] ?? { prev: null, q1: null, q2: null, q3: null, q4: null };
+            const q = quarterly[r.id] ?? { prev: null, prevQuarter: null, q1: null, q2: null, q3: null, q4: null };
 
             return (
               <tr key={r.id} className={`border-t border-neutral-100 ${idx % 2 === 1 ? "bg-neutral-50/60" : ""}`}>
@@ -264,7 +265,14 @@ export default function KpiTable({
                       {r.target_2569 != null ? thb.format(r.target_2569) : "—"}
                     </td>
                     <td className="px-2 py-2 text-right text-neutral-600">
-                      {q.prev != null ? thb.format(q.prev) : "—"}
+                      {q.prev != null ? (
+                        <>
+                          {thb.format(q.prev)}
+                          {q.prevQuarter && <span className="ml-1 text-[10px] text-neutral-400">(Q{q.prevQuarter})</span>}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="bg-[#E6F4EC] px-2 py-2 text-right font-semibold text-neutral-900">
                       {r.target_2570 != null ? thb.format(r.target_2570) : "—"}
