@@ -14,6 +14,7 @@ type Activity = {
   status: string;
   start_date: string | null;
   end_date: string | null;
+  budget_planned: number;
   budget_used: number | null;
 };
 
@@ -24,7 +25,7 @@ export default async function ProjectsPage() {
     supabase.from("departments").select("id, name_th").returns<Department[]>(),
     supabase
       .from("activities_projects")
-      .select("id, department_id, fiscal_year, title, description, status, start_date, end_date, budget_used")
+      .select("id, department_id, fiscal_year, title, description, status, start_date, end_date, budget_planned, budget_used")
       .order("fiscal_year", { ascending: false })
       .returns<Activity[]>(),
   ]);
@@ -51,10 +52,11 @@ export default async function ProjectsPage() {
         </a>
       </div>
 
-      <div className="mt-6 flex gap-4 text-sm">
+      <div className="mt-6 flex flex-wrap gap-3 text-sm">
+        <span className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-600">รอดำเนินการ {byStatus("รอดำเนินการ")}</span>
         <span className="rounded-full bg-[#FFF6CC] px-3 py-1">กำลังดำเนินการ {byStatus("กำลังดำเนินการ")}</span>
         <span className="rounded-full bg-[#E6F4EC] px-3 py-1 text-[#0E7A3B]">เสร็จสิ้น {byStatus("เสร็จสิ้น")}</span>
-        <span className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-600">ชะลอ {byStatus("ชะลอ")}</span>
+        <span className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-500">ชะลอ {byStatus("ชะลอ")}</span>
         <span className="rounded-full bg-red-50 px-3 py-1 text-red-600">ยกเลิก {byStatus("ยกเลิก")}</span>
       </div>
 
