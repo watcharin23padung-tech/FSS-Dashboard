@@ -18,7 +18,7 @@ export default async function AdminPage() {
     supabase.from("departments").select("id, name_th, name_en").order("name_th"),
     supabase
       .from("personnel")
-      .select("id, department_id, full_name, position, employment_type, email, phone")
+      .select("id, department_id, full_name, position, email, phone, is_head")
       .order("full_name"),
     supabase
       .from("budget_items")
@@ -26,7 +26,7 @@ export default async function AdminPage() {
       .order("fiscal_year", { ascending: false }),
     supabase
       .from("activities_projects")
-      .select("id, department_id, fiscal_year, title, description, status, start_date, end_date, budget_used")
+      .select("id, department_id, fiscal_year, title, description, status, start_date, end_date, budget_planned, budget_used")
       .order("fiscal_year", { ascending: false }),
     supabase
       .from("kpis")

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { parseCsv } from "@/lib/csv";
 import PersonnelTable, { PersonnelRow } from "@/components/crud/personnel-table";
 import BudgetTable, { BudgetRow } from "@/components/crud/budget-table";
-import ActivitiesTable, { ActivityRow } from "@/components/crud/activities-table";
+import ActivitiesTable, { ActivityRow, STATUS_OPTIONS } from "@/components/crud/activities-table";
 import KpiTable, { KpiRow, ActivityOption, QuarterlyActuals } from "@/components/crud/kpi-table";
 
 type Department = { id: string; name_th: string; name_en: string | null };
@@ -15,6 +15,52 @@ type PersonnelRecord = PersonnelRow & { department_id: string };
 type BudgetRecord = BudgetRow & { department_id: string };
 type ActivityRecord = ActivityRow & { department_id: string };
 
+// รายการ KPI ทางการทั้ง 35 ตัว พร้อมเป้าหมาย 2568/2569/2570 — จากเอกสารยืนยันการรับเป้า 2570 (ประชุม 9 ก.ย. 2569)
+const MASTER_KPIS: {
+  code: string;
+  name: string;
+  unit: string;
+  target_2568: number | null;
+  target_2569: number | null;
+  target_2570: number | null;
+}[] = [
+  { code: "A1", name: "Student and graduate Entrepreneur", unit: "คน", target_2568: null, target_2569: 32, target_2570: 33 },
+  { code: "A2", name: "Industrial income", unit: "บาท", target_2568: null, target_2569: 2772000, target_2570: 3176250 },
+  { code: "B1", name: "ผู้สำเร็จการศึกษาที่ได้งานทำหรือประกอบอาชีพอิสระภายในระยะเวลา 1 ปี", unit: "ร้อยละ", target_2568: 70, target_2569: 73, target_2570: 75 },
+  { code: "C1", name: "คะแนนความพึงพอใจของผู้ใช้บัณฑิต", unit: "คะแนน", target_2568: 4.3, target_2569: 4.4, target_2570: 4.4 },
+  { code: "C2", name: "จำนวนผู้เรียนในหลักสูตรการจัดการศึกษาแนวใหม่", unit: "คน", target_2568: 145, target_2569: 170, target_2570: 164 },
+  { code: "C4", name: "จำนวนผู้เรียนต่างชาติที่เข้าศึกษาในหลักสูตรระดับปริญญา (Degree)", unit: "คน", target_2568: 20, target_2569: 15, target_2570: 14 },
+  { code: "C5", name: "จำนวนผู้เรียนหลักสูตรประกาศนียบัตร (Non-degree)", unit: "คน", target_2568: 450, target_2569: 650, target_2570: 650 },
+  { code: "C6", name: "จำนวนหลักสูตรประกาศนียบัตร (Non-degree) ที่มีการดำเนินงานตามรูปแบบ EEC model (นับสะสม)", unit: "หลักสูตร", target_2568: 3, target_2569: 4, target_2570: 5 },
+  { code: "C7", name: "จำนวนผู้เรียนที่ผ่านการอบรมหลักสูตรประกาศนียบัตร (Non-degree) ที่มีการดำเนินงานตามรูปแบบ EEC model", unit: "คน", target_2568: 100, target_2569: 100, target_2570: 120 },
+  { code: "C8", name: "จำนวนผู้เรียนในระบบการศึกษาตลอดชีวิต (นับสะสม)", unit: "คน", target_2568: 1200, target_2569: 2300, target_2570: 2500 },
+  { code: "C9", name: "จำนวนรายวิชา BUU MOOCs (นับสะสม)", unit: "รายวิชา", target_2568: 3, target_2569: 5, target_2570: 2 },
+  { code: "C10", name: "จำนวนผู้เรียน BUU MOOCs", unit: "คน", target_2568: 800, target_2569: 2000, target_2570: 2000 },
+  { code: "C12", name: "จำนวนหลักสูตรประกาศนียบัตร (Non-degree) หรือรายวิชา BUU MOOCs ที่สอนโดยใช้ภาษาต่างประเทศ (นับสะสม)", unit: "หลักสูตร/รายวิชา", target_2568: null, target_2569: null, target_2570: 1 },
+  { code: "C13", name: "ร้อยละของจำนวนนิสิตแลกเปลี่ยน (inbound+outbound) ต่อจำนวนนิสิตทั้งหมด", unit: "คน", target_2568: 10, target_2569: 4, target_2570: 5 },
+  { code: "C14", name: "ร้อยละของนิสิตที่ได้รับการพัฒนา Soft Skill เพื่อดำเนินชีวิตประจำวันและเตรียมความพร้อมเข้าสู่การทำงาน", unit: "ร้อยละ", target_2568: 95, target_2569: 95, target_2570: 95 },
+  { code: "C15", name: "ร้อยละของนิสิตที่มีความโดดเด่นด้านผู้นำ/ผู้ประกอบการ/พลเมืองโลก/ดิจิทัล/สุขภาวะ", unit: "ร้อยละ", target_2568: 8, target_2569: 15, target_2570: 16 },
+  { code: "C16", name: "จำนวนงบประมาณวิจัยที่ได้รับการสนับสนุนจากแหล่งทุนภายนอก", unit: "บาท", target_2568: 500000, target_2569: 1140000, target_2570: 1575000 },
+  { code: "C17", name: "ร้อยละของจำนวนโครงการวิจัยที่ได้รับงบประมาณจากแหล่งทุนภายนอกต่อจำนวนโครงการวิจัยทั้งหมด", unit: "โครงการ", target_2568: 22, target_2569: 2, target_2570: 3 },
+  { code: "C20", name: "ร้อยละของบทความวิจัยที่มีความร่วมมือกับสถาบันการศึกษาต่างประเทศและตีพิมพ์ในฐานข้อมูล Scopus", unit: "บทความ", target_2568: 3, target_2569: 5, target_2570: 7 },
+  { code: "C21", name: "ร้อยละของบทความวิจัยที่ได้รับการตีพิมพ์ใน Q1 & Q2 Journal บนฐานข้อมูล Scopus", unit: "เรื่อง", target_2568: 5, target_2569: 5, target_2570: 4 },
+  { code: "C22", name: "ร้อยละของบทความวิจัยที่ได้รับการตีพิมพ์ใน Top10% Journal บนฐานข้อมูล Scopus", unit: "เรื่อง", target_2568: 1, target_2569: 1, target_2570: 1 },
+  { code: "C24", name: "จำนวนผลงานหรือกิจกรรมสนับสนุนอุตสาหกรรม (ที่ปรึกษา/ช่วยเหลือ)", unit: "ผลงาน", target_2568: 1, target_2569: 1, target_2570: 2 },
+  { code: "C27", name: "งบประมาณการพัฒนาเทคโนโลยี/นวัตกรรม เพื่อพัฒนาความเป็นผู้ประกอบการของสถาบันอุดมศึกษา", unit: "บาท", target_2568: 274000, target_2569: 500000, target_2570: 200000 },
+  { code: "B3", name: "จำนวนกิจกรรมที่นำองค์ความรู้และนวัตกรรมที่นำไปใช้ในการพัฒนาพื้นที่", unit: "กิจกรรม", target_2568: 5, target_2569: 2, target_2570: 2 },
+  { code: "C29", name: "การบริหารองค์กรอย่างมีประสิทธิผล โดยมีส่วนงานที่มีคะแนน EdPEx ระดับ 250 คะแนนขึ้นไป", unit: "ส่วนงาน", target_2568: null, target_2569: 250, target_2570: 250 },
+  { code: "C30.1", name: "จำนวนกิจกรรม/โครงการที่เกี่ยวข้องกับการดำเนินงานด้านมหาวิทยาลัยสีเขียว", unit: "กิจกรรม", target_2568: 5, target_2569: 3, target_2570: 3 },
+  { code: "C30.2", name: "จำนวนงบประมาณที่เกี่ยวข้องกับการสร้างความยั่งยืน (green university)", unit: "บาท", target_2568: 120000, target_2569: 150000, target_2570: 200000 },
+  { code: "C31.1", name: "จำนวนข่าวที่ปรากฏใน LinkedIn ของมหาวิทยาลัย", unit: "เรื่อง", target_2568: 1, target_2569: 1, target_2570: 2 },
+  { code: "C31.2", name: "จำนวนกิจกรรมที่สอดคล้องกับ SDG และมีการนำเสนอเป็นภาษาอังกฤษบนเว็บไซต์", unit: "กิจกรรม", target_2568: null, target_2569: 2, target_2570: 4 },
+  { code: "B5", name: "ร้อยละของบุคลากรที่มีสมรรถนะหลัก (Core Competency) เป็นไปตามค่าคาดหวังตามประกาศที่เกี่ยวข้องของมหาวิทยาลัย", unit: "ร้อยละ", target_2568: null, target_2569: 80, target_2570: 91 },
+  { code: "C34", name: "จำนวนส่วนงานที่ผ่านเกณฑ์ NI-15", unit: "ส่วนงาน", target_2568: null, target_2569: 15, target_2570: 15 },
+  { code: "C35", name: "จำนวนส่วนงานที่มีการเติบโตของเงินรายได้มากกว่าหรือเท่ากับร้อยละ 4", unit: "ส่วนงาน", target_2568: null, target_2569: 4, target_2570: 4 },
+  { code: "C37", name: "ร้อยละของอาจารย์ที่ได้รับการรับรองสมรรถนะตามมาตรฐานคุณวุฒิ", unit: "ร้อยละ", target_2568: null, target_2569: 5, target_2570: 10 },
+  { code: "C40", name: "ระดับความผูกพันของบุคลากร (Employee Engagement Score) ต่อมหาวิทยาลัยและส่วนงาน", unit: "คะแนน", target_2568: null, target_2569: 3.7, target_2570: null },
+  { code: "C41", name: "จำนวนผลงานที่ได้ทำร่วมกับ Strategic Partner", unit: "ผลงาน", target_2568: 5, target_2569: 1, target_2570: 1 },
+];
+
 const CATEGORIES: { id: Category; label: string; needsDepartment: boolean }[] = [
   { id: "personnel", label: "บุคลากร", needsDepartment: true },
   { id: "budget", label: "งบประมาณ", needsDepartment: true },
@@ -23,9 +69,9 @@ const CATEGORIES: { id: Category; label: string; needsDepartment: boolean }[] = 
 ];
 
 const CSV_TEMPLATE: Record<Category, string> = {
-  personnel: "full_name,position,employment_type,email,phone",
-  budget: "fiscal_year,category,budget_name,allocated_amount,used_amount,pending_midyear_amount",
-  activities: "fiscal_year,title,description,status,start_date,end_date,budget_used",
+  personnel: "full_name,position,email,phone",
+  budget: "fiscal_year,budget_name,allocated_amount,used_amount,pending_midyear_amount",
+  activities: "fiscal_year,title,description,status,start_date,end_date,budget_planned,budget_used",
   kpi: "kpi_code,kpi_name,unit,target_2568,target_2569,target_2570",
 };
 
@@ -171,25 +217,8 @@ export default function AdminPanel({
 
           {(!currentCategory.needsDepartment || departments.length > 0) && (
             <div className={currentCategory.needsDepartment ? "mt-6" : ""}>
-              {activeCategory === "personnel" && (
-                <PersonnelForm supabase={supabase} departmentId={selectedDeptId} />
-              )}
-              {activeCategory === "budget" && <BudgetForm supabase={supabase} departmentId={selectedDeptId} />}
-              {activeCategory === "activities" && (
-                <ActivityForm supabase={supabase} departmentId={selectedDeptId} />
-              )}
-              {activeCategory === "kpi" && <KpiForm supabase={supabase} activityOptions={activityOptions} />}
-
-              <div className="mt-8 border-t border-neutral-200 pt-6">
-                <CsvUpload
-                  supabase={supabase}
-                  departmentId={selectedDeptId}
-                  category={activeCategory}
-                />
-              </div>
-
-              {/* รายการที่มีอยู่แล้ว — แก้ไข/ลบได้ตรงนี้ */}
-              <div className="mt-8 border-t border-neutral-200 pt-6">
+              {/* รายการที่มีอยู่แล้ว — แสดงก่อนเสมอ ให้เห็นข้อมูลที่กรอกไปแล้วทันที แก้ไข/ลบได้ตรงนี้ */}
+              <div>
                 <h3 className="mb-3 text-sm font-medium text-neutral-500">รายการที่มีอยู่แล้ว</h3>
                 {activeCategory === "personnel" && (
                   <PersonnelTable
@@ -219,6 +248,24 @@ export default function AdminPanel({
                   />
                 )}
               </div>
+
+              <div className="mt-8 border-t border-neutral-200 pt-6">
+                <h3 className="mb-3 text-sm font-medium text-neutral-500">
+                  {activeCategory === "kpi" ? "เพิ่มตัวชี้วัด" : "เพิ่มรายการใหม่"}
+                </h3>
+                {activeCategory === "personnel" && (
+                  <PersonnelForm supabase={supabase} departmentId={selectedDeptId} />
+                )}
+                {activeCategory === "budget" && <BudgetForm supabase={supabase} departmentId={selectedDeptId} />}
+                {activeCategory === "activities" && (
+                  <ActivityForm supabase={supabase} departmentId={selectedDeptId} />
+                )}
+                {activeCategory === "kpi" && <KpiForm supabase={supabase} activityOptions={activityOptions} />}
+              </div>
+
+              <div className="mt-8 border-t border-neutral-200 pt-6">
+                <CsvUpload supabase={supabase} departmentId={selectedDeptId} category={activeCategory} />
+              </div>
             </div>
           )}
         </section>
@@ -236,9 +283,9 @@ function FormMessage({ msg }: { msg: string | null }) {
 function PersonnelForm({ supabase, departmentId }: { supabase: any; departmentId: string }) {
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
-  const [employmentType, setEmploymentType] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [isHead, setIsHead] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -252,29 +299,32 @@ function PersonnelForm({ supabase, departmentId }: { supabase: any; departmentId
       department_id: departmentId,
       full_name: fullName.trim(),
       position: position.trim() || null,
-      employment_type: employmentType.trim() || null,
       email: email.trim() || null,
       phone: phone.trim() || null,
+      is_head: isHead,
     });
     if (error) {
       setMsg(`เพิ่มบุคลากรไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setMsg(`เพิ่ม "${fullName.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านล่าง`);
+    setMsg(`เพิ่ม "${fullName.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านบน`);
     setFullName("");
     setPosition("");
-    setEmploymentType("");
     setEmail("");
     setPhone("");
+    setIsHead(false);
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TextInput label="ชื่อ-นามสกุล" value={fullName} onChange={setFullName} />
       <TextInput label="ตำแหน่ง" value={position} onChange={setPosition} />
-      <TextInput label="ประเภทการจ้าง" value={employmentType} onChange={setEmploymentType} />
       <TextInput label="อีเมล" value={email} onChange={setEmail} />
       <TextInput label="เบอร์โทร" value={phone} onChange={setPhone} />
+      <label className="flex items-center gap-2 text-sm text-neutral-600 sm:col-span-2">
+        <input type="checkbox" checked={isHead} onChange={(e) => setIsHead(e.target.checked)} />
+        เป็นหัวหน้าฝ่าย (จะแสดงขึ้นก่อนในรายการ)
+      </label>
       <div className="sm:col-span-2">
         <SubmitButton label="เพิ่มบุคลากร" />
         <FormMessage msg={msg} />
@@ -283,9 +333,10 @@ function PersonnelForm({ supabase, departmentId }: { supabase: any; departmentId
   );
 }
 
+const FISCAL_YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) => 2570 + i);
+
 function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: string }) {
-  const [fiscalYear, setFiscalYear] = useState("");
-  const [category, setCategory] = useState("");
+  const [fiscalYear, setFiscalYear] = useState(String(FISCAL_YEAR_OPTIONS[0]));
   const [budgetName, setBudgetName] = useState("");
   const [allocated, setAllocated] = useState("");
   const [used, setUsed] = useState("");
@@ -295,14 +346,14 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
-    if (!fiscalYear.trim() || !budgetName.trim()) {
-      setMsg("กรุณากรอกปีงบประมาณและชื่อรายการงบประมาณ");
+    if (!budgetName.trim()) {
+      setMsg("กรุณากรอกชื่อรายการงบประมาณ");
       return;
     }
     const { error } = await supabase.from("budget_items").insert({
       department_id: departmentId,
       fiscal_year: Number(fiscalYear),
-      category: category.trim() || "ไม่ระบุ",
+      category: "ไม่ระบุ",
       budget_name: budgetName.trim(),
       allocated_amount: Number(allocated) || 0,
       used_amount: Number(used) || 0,
@@ -312,9 +363,7 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
       setMsg(`เพิ่มรายการงบประมาณไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setMsg(`เพิ่ม "${budgetName.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านล่าง`);
-    setFiscalYear("");
-    setCategory("");
+    setMsg(`เพิ่ม "${budgetName.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านบน`);
     setBudgetName("");
     setAllocated("");
     setUsed("");
@@ -323,8 +372,20 @@ function BudgetForm({ supabase, departmentId }: { supabase: any; departmentId: s
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <TextInput label="ปีงบประมาณ (พ.ศ. เช่น 2570)" value={fiscalYear} onChange={setFiscalYear} />
-      <TextInput label="หมวดงบ" value={category} onChange={setCategory} />
+      <label className="text-sm text-neutral-600">
+        ปีงบประมาณ (พ.ศ.)
+        <select
+          value={fiscalYear}
+          onChange={(e) => setFiscalYear(e.target.value)}
+          className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+        >
+          {FISCAL_YEAR_OPTIONS.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      </label>
       <TextInput label="ชื่อรายการงบประมาณ" value={budgetName} onChange={setBudgetName} full />
       <TextInput label="งบที่ได้ (บาท)" value={allocated} onChange={setAllocated} />
       <TextInput label="ได้รับจัดสรร (บาท)" value={used} onChange={setUsed} />
@@ -341,9 +402,10 @@ function ActivityForm({ supabase, departmentId }: { supabase: any; departmentId:
   const [fiscalYear, setFiscalYear] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("กำลังดำเนินการ");
+  const [status, setStatus] = useState("รอดำเนินการ");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [budgetPlanned, setBudgetPlanned] = useState("");
   const [budgetUsed, setBudgetUsed] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -359,38 +421,37 @@ function ActivityForm({ supabase, departmentId }: { supabase: any; departmentId:
       fiscal_year: Number(fiscalYear),
       title: title.trim(),
       description: description.trim() || null,
-      status: status.trim() || "กำลังดำเนินการ",
+      status,
       start_date: startDate || null,
       end_date: endDate || null,
+      budget_planned: Number(budgetPlanned) || 0,
       budget_used: Number(budgetUsed) || 0,
     });
     if (error) {
       setMsg(`เพิ่มโครงการไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setMsg(`เพิ่ม "${title.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านล่าง`);
+    setMsg(`เพิ่ม "${title.trim()}" สำเร็จ — รีเฟรชหน้าเพื่อดูในรายการด้านบน`);
     setFiscalYear("");
     setTitle("");
     setDescription("");
     setStartDate("");
     setEndDate("");
+    setBudgetPlanned("");
     setBudgetUsed("");
+    setStatus("รอดำเนินการ");
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TextInput label="ปีงบประมาณ (พ.ศ.)" value={fiscalYear} onChange={setFiscalYear} />
-      <SelectInput
-        label="สถานะ"
-        value={status}
-        onChange={setStatus}
-        options={["กำลังดำเนินการ", "เสร็จสิ้น", "ชะลอ", "ยกเลิก"]}
-      />
+      <SelectInput label="สถานะ" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
       <TextInput label="ชื่อโครงการ/กิจกรรม" value={title} onChange={setTitle} full />
       <TextInput label="รายละเอียด" value={description} onChange={setDescription} full />
       <TextInput label="วันเริ่มต้น" value={startDate} onChange={setStartDate} type="date" />
       <TextInput label="วันสิ้นสุด" value={endDate} onChange={setEndDate} type="date" />
-      <TextInput label="งบที่ใช้ไป (บาท)" value={budgetUsed} onChange={setBudgetUsed} />
+      <TextInput label="งบตามแผน (บาท)" value={budgetPlanned} onChange={setBudgetPlanned} />
+      <TextInput label="งบที่ใช้จริง (บาท)" value={budgetUsed} onChange={setBudgetUsed} />
       <div className="sm:col-span-2">
         <SubmitButton label="เพิ่มโครงการ" />
         <FormMessage msg={msg} />
@@ -400,71 +461,92 @@ function ActivityForm({ supabase, departmentId }: { supabase: any; departmentId:
 }
 
 function KpiForm({ supabase, activityOptions }: { supabase: any; activityOptions: ActivityOption[] }) {
-  const [kpiCode, setKpiCode] = useState("");
-  const [kpiName, setKpiName] = useState("");
-  const [unit, setUnit] = useState("");
-  const [target2568, setTarget2568] = useState("");
-  const [target2569, setTarget2569] = useState("");
-  const [target2570, setTarget2570] = useState("");
+  const [selectedCode, setSelectedCode] = useState("");
+  const [target2570Override, setTarget2570Override] = useState("");
   const [activityId, setActivityId] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+
+  const selected = MASTER_KPIS.find((k) => k.code === selectedCode);
+
+  function handleSelectChange(code: string) {
+    setSelectedCode(code);
+    const found = MASTER_KPIS.find((k) => k.code === code);
+    setTarget2570Override(found?.target_2570 != null ? String(found.target_2570) : "");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
-    if (!kpiCode.trim() || !kpiName.trim()) {
-      setMsg("กรุณากรอกรหัสและชื่อตัวชี้วัด");
+    if (!selected) {
+      setMsg("กรุณาเลือกตัวชี้วัดจากรายการ");
       return;
     }
     const { error } = await supabase.from("kpis").insert({
-      kpi_code: kpiCode.trim(),
-      kpi_name: kpiName.trim(),
-      unit: unit.trim() || null,
-      target_2568: target2568 ? Number(target2568) : null,
-      target_2569: target2569 ? Number(target2569) : null,
-      target_2570: target2570 ? Number(target2570) : null,
+      kpi_code: selected.code,
+      kpi_name: selected.name,
+      unit: selected.unit,
+      target_2568: selected.target_2568,
+      target_2569: selected.target_2569,
+      target_2570: target2570Override ? Number(target2570Override) : selected.target_2570,
       activity_id: activityId || null,
     });
     if (error) {
       setMsg(`เพิ่ม KPI ไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setMsg(`เพิ่ม "${kpiName.trim()}" สำเร็จ — กรอกผลจริงรายไตรมาสได้ที่ปุ่ม "แก้ไข" ในรายการด้านล่าง`);
-    setKpiCode("");
-    setKpiName("");
-    setUnit("");
-    setTarget2568("");
-    setTarget2569("");
-    setTarget2570("");
+    setMsg(`เพิ่ม "${selected.name}" สำเร็จ — กรอกผลจริงรายไตรมาสได้ที่ปุ่ม "แก้ไข" ในรายการด้านบน`);
+    setSelectedCode("");
+    setTarget2570Override("");
     setActivityId("");
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <TextInput label="รหัส KPI" value={kpiCode} onChange={setKpiCode} />
-      <TextInput label="หน่วย" value={unit} onChange={setUnit} />
-      <TextInput label="ชื่อตัวชี้วัด" value={kpiName} onChange={setKpiName} full />
       <label className="text-sm text-neutral-600 sm:col-span-2">
-        โครงการที่เกี่ยวข้อง (ไม่บังคับ)
+        เลือกตัวชี้วัด (จากเอกสารยืนยันเป้า 2570)
         <select
-          value={activityId}
-          onChange={(e) => setActivityId(e.target.value)}
+          value={selectedCode}
+          onChange={(e) => handleSelectChange(e.target.value)}
           className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
         >
-          <option value="">— ไม่ผูกกับโครงการ (KPI ระดับคณะ) —</option>
-          {activityOptions.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
+          <option value="">— เลือกตัวชี้วัด —</option>
+          {MASTER_KPIS.map((k) => (
+            <option key={k.code} value={k.code}>
+              {k.code} — {k.name}
             </option>
           ))}
         </select>
       </label>
-      <TextInput label="เป้าหมาย 2568" value={target2568} onChange={setTarget2568} />
-      <TextInput label="เป้าหมาย 2569" value={target2569} onChange={setTarget2569} />
-      <TextInput label="เป้าหมาย 2570" value={target2570} onChange={setTarget2570} />
-      <p className="text-xs text-neutral-400 sm:col-span-2">
-        ผลจริงรายไตรมาส (Q1-Q4) กรอกเพิ่มได้ทีหลังผ่านปุ่ม "แก้ไข" ในรายการด้านล่าง หลังบันทึกครั้งนี้
-      </p>
+
+      {selected && (
+        <>
+          <label className="text-sm text-neutral-600">
+            เป้าหมาย 2570 ({selected.unit})
+            <input
+              type="number"
+              value={target2570Override}
+              onChange={(e) => setTarget2570Override(e.target.value)}
+              className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+            />
+          </label>
+          <label className="text-sm text-neutral-600">
+            โครงการที่เกี่ยวข้อง (ไม่บังคับ)
+            <select
+              value={activityId}
+              onChange={(e) => setActivityId(e.target.value)}
+              className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+            >
+              <option value="">— ไม่ผูกกับโครงการ (KPI ระดับคณะ) —</option>
+              {activityOptions.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+
       <div className="sm:col-span-2">
         <SubmitButton label="เพิ่มตัวชี้วัด" />
         <FormMessage msg={msg} />
@@ -510,7 +592,6 @@ function CsvUpload({
           department_id: departmentId,
           full_name: r.full_name || "",
           position: r.position || null,
-          employment_type: r.employment_type || null,
           email: r.email || null,
           phone: r.phone || null,
         }));
@@ -519,7 +600,7 @@ function CsvUpload({
         payload = rows.map((r) => ({
           department_id: departmentId,
           fiscal_year: Number(r.fiscal_year) || null,
-          category: r.category || "ไม่ระบุ",
+          category: "ไม่ระบุ",
           budget_name: r.budget_name || "",
           allocated_amount: Number(r.allocated_amount) || 0,
           used_amount: Number(r.used_amount) || 0,
@@ -532,9 +613,10 @@ function CsvUpload({
           fiscal_year: Number(r.fiscal_year) || null,
           title: r.title || "",
           description: r.description || null,
-          status: r.status || "กำลังดำเนินการ",
+          status: r.status || "รอดำเนินการ",
           start_date: r.start_date || null,
           end_date: r.end_date || null,
+          budget_planned: Number(r.budget_planned) || 0,
           budget_used: Number(r.budget_used) || 0,
         }));
       } else {
@@ -553,7 +635,7 @@ function CsvUpload({
       if (error) {
         setMsg(`อัปโหลดไม่สำเร็จ: ${error.message}`);
       } else {
-        setMsg(`นำเข้าข้อมูลสำเร็จ ${payload.length} แถว — รีเฟรชหน้าเพื่อดูในรายการด้านล่าง`);
+        setMsg(`นำเข้าข้อมูลสำเร็จ ${payload.length} แถว — รีเฟรชหน้าเพื่อดูในรายการด้านบน`);
       }
     } catch (err: any) {
       setMsg(`อ่านไฟล์ไม่สำเร็จ: ${err.message ?? "ไม่ทราบสาเหตุ"}`);
