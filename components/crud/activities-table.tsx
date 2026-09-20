@@ -11,16 +11,18 @@ export type ActivityRow = {
   status: string;
   start_date: string | null;
   end_date: string | null;
+  budget_planned: number;
   budget_used: number | null;
 };
 
 const thb = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 });
-const STATUS_OPTIONS = ["กำลังดำเนินการ", "เสร็จสิ้น", "ชะลอ", "ยกเลิก"];
-const STATUS_STYLE: Record<string, string> = {
-  เสร็จสิ้น: "bg-[#E6F4EC] text-[#0E7A3B]",
+export const STATUS_OPTIONS = ["รอดำเนินการ", "กำลังดำเนินการ", "เสร็จสิ้น", "ชะลอ", "ยกเลิก"];
+export const STATUS_STYLE: Record<string, string> = {
+  รอดำเนินการ: "bg-neutral-100 text-neutral-600",
   กำลังดำเนินการ: "bg-[#FFF6CC] text-neutral-800",
-  ชะลอ: "bg-neutral-100 text-neutral-600",
-  ยกเลิก: "bg-red-50 text-red-600",
+  เสร็จสิ้น: "bg-[#E6F4EC] text-[#0E7A3B]",
+  ชะลอ: "bg-neutral-100 text-neutral-500",
+  ยกเลิก: "bg-neutral-100 text-neutral-400 line-through",
 };
 
 export default function ActivitiesTable({
@@ -61,6 +63,7 @@ export default function ActivitiesTable({
         status: draft.status,
         start_date: draft.start_date || null,
         end_date: draft.end_date || null,
+        budget_planned: draft.budget_planned ?? 0,
         budget_used: draft.budget_used ?? 0,
       })
       .eq("id", draft.id);
@@ -89,16 +92,17 @@ export default function ActivitiesTable({
   if (rows.length === 0) return <p className="text-sm text-neutral-400">ยังไม่มีข้อมูล</p>;
 
   return (
-    <div>
+    <div className="overflow-x-auto">
       {msg && <p className="mb-2 text-sm text-red-600">{msg}</p>}
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full min-w-[860px] border-collapse text-sm">
         <thead>
           <tr className="text-left text-neutral-500">
             <th className="pb-1.5 font-medium">ปีงบ</th>
             <th className="pb-1.5 font-medium">ชื่อโครงการ</th>
             {showDepartment && <th className="pb-1.5 font-medium">ฝ่าย</th>}
             <th className="pb-1.5 font-medium">ช่วงเวลา</th>
-            <th className="pb-1.5 text-right font-medium">งบที่ใช้</th>
+            <th className="pb-1.5 text-right font-medium">งบตามแผน</th>
+            <th className="pb-1.5 text-right font-medium">ใช้จริง</th>
             <th className="pb-1.5 font-medium">สถานะ</th>
             <th className="w-28 pb-1.5 font-medium"></th>
           </tr>
@@ -145,6 +149,14 @@ export default function ActivitiesTable({
                     <td className="py-1.5 pr-2">
                       <input
                         type="number"
+                        value={draft.budget_planned ?? 0}
+                        onChange={(e) => setDraft({ ...draft, budget_planned: Number(e.target.value) })}
+                        className="w-24 rounded border border-neutral-300 px-2 py-1 text-right text-sm"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        type="number"
                         value={draft.budget_used ?? 0}
                         onChange={(e) => setDraft({ ...draft, budget_used: Number(e.target.value) })}
                         className="w-24 rounded border border-neutral-300 px-2 py-1 text-right text-sm"
@@ -186,6 +198,9 @@ export default function ActivitiesTable({
                     )}
                     <td className="py-2 text-neutral-500">
                       {r.start_date ?? "—"} – {r.end_date ?? "—"}
+                    </td>
+                    <td className="py-2 text-right text-neutral-500">
+                      {r.budget_planned ? thb.format(r.budget_planned) : "—"}
                     </td>
                     <td className="py-2 text-right">{r.budget_used ? thb.format(r.budget_used) : "—"}</td>
                     <td className="py-2">
