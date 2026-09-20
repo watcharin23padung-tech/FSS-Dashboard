@@ -39,6 +39,7 @@ function latestQuarterValue(actuals: KpiActual[], kpiId: string, fiscalYear: num
 }
 
 const STATUS_STYLE: Record<string, string> = {
+  รอดำเนินการ: "bg-neutral-100 text-neutral-600",
   เสร็จสิ้น: "bg-[#E6F4EC] text-[#0E7A3B]",
   กำลังดำเนินการ: "bg-[#FFF6CC] text-neutral-800",
   ชะลอ: "bg-neutral-100 text-neutral-600",
