@@ -10,9 +10,9 @@ type Personnel = {
   department_id: string;
   full_name: string;
   position: string | null;
-  employment_type: string | null;
   email: string | null;
   phone: string | null;
+  is_head: boolean;
 };
 
 export default async function PersonnelPage() {
@@ -22,7 +22,7 @@ export default async function PersonnelPage() {
     supabase.from("departments").select("id, name_th").order("name_th").returns<Department[]>(),
     supabase
       .from("personnel")
-      .select("id, department_id, full_name, position, employment_type, email, phone")
+      .select("id, department_id, full_name, position, email, phone, is_head")
       .order("full_name")
       .returns<Personnel[]>(),
   ]);
